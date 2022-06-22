@@ -1,6 +1,7 @@
 package com.adobe.phonegap.push
 
 import android.annotation.SuppressLint
+import android.app.Activity
 import android.app.Notification
 import android.app.NotificationManager
 import android.app.PendingIntent
@@ -32,7 +33,7 @@ import java.io.InputStream
 import java.net.HttpURLConnection
 import java.net.URL
 import java.security.SecureRandom
-import java.util.*
+
 
 /**
  * Firebase Cloud Messaging Service Class
@@ -436,8 +437,12 @@ class FCMService : FirebaseMessagingService() {
   private fun createNotification(extras: Bundle?) {
     val mNotificationManager = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
     val appName = getAppName(this)
+    val fullScreenIntent = extras!!.getString(PushConstants.FULL_SCREEN_NOTIFICATION, "").equals("1")
     val notId = parseNotificationIdToInt(extras)
-    val notificationIntent = Intent(this, PushHandlerActivity::class.java).apply {
+    val activityClass: Class<out Activity?> =
+      if (fullScreenIntent) FullScreenActivity::class.java else PushHandlerActivity::class.java
+
+    val notificationIntent = Intent(this, activityClass).apply {
       addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP)
       putExtra(PushConstants.PUSH_BUNDLE, extras)
       putExtra(PushConstants.NOT_ID, notId)
@@ -448,7 +453,7 @@ class FCMService : FirebaseMessagingService() {
       this,
       requestCode,
       notificationIntent,
-      PendingIntent.FLAG_UPDATE_CURRENT
+      (PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
     )
     val dismissedNotificationIntent = Intent(
       this,
@@ -467,18 +472,25 @@ class FCMService : FirebaseMessagingService() {
       this,
       requestCode,
       dismissedNotificationIntent,
-      PendingIntent.FLAG_CANCEL_CURRENT
+      (PendingIntent.FLAG_CANCEL_CURRENT or PendingIntent.FLAG_IMMUTABLE)
     )
 
     val mBuilder: NotificationCompat.Builder =
       createNotificationBuilder(extras, mNotificationManager)
 
     mBuilder.setWhen(System.currentTimeMillis())
-      .setContentTitle(fromHtml(extras?.getString(PushConstants.TITLE)))
-      .setTicker(fromHtml(extras?.getString(PushConstants.TITLE)))
+      .setContentTitle(fromHtml(extras.getString(PushConstants.TITLE)))
+      .setTicker(fromHtml(extras.getString(PushConstants.TITLE)))
       .setContentIntent(contentIntent)
       .setDeleteIntent(deleteIntent)
       .setAutoCancel(true)
+
+    if (fullScreenIntent) {
+      mBuilder
+          .setFullScreenIntent(contentIntent, true).priority = NotificationCompat.PRIORITY_HIGH
+    } else {
+      mBuilder.setContentIntent(contentIntent)
+    }
 
     val localIcon = pushSharedPref.getString(PushConstants.ICON, null)
     val localIconColor = pushSharedPref.getString(PushConstants.ICON_COLOR, null)
@@ -501,7 +513,7 @@ class FCMService : FirebaseMessagingService() {
      * Sets the small-icon background color of the notification.
      * To use, add the `iconColor` key to plugin android options
      */
-    setNotificationIconColor(extras?.getString(PushConstants.COLOR), mBuilder, localIconColor)
+    setNotificationIconColor(extras.getString(PushConstants.COLOR), mBuilder, localIconColor)
 
     /*
      * Notification Icon
@@ -696,7 +708,7 @@ class FCMService : FirebaseMessagingService() {
               pIntent = PendingIntent.getActivity(
                 this, uniquePendingIntentRequestCode,
                 intent,
-                PendingIntent.FLAG_UPDATE_CURRENT
+                (PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
               )
             }
 
@@ -706,7 +718,7 @@ class FCMService : FirebaseMessagingService() {
               pIntent = PendingIntent.getBroadcast(
                 this, uniquePendingIntentRequestCode,
                 intent,
-                PendingIntent.FLAG_UPDATE_CURRENT
+                (PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
               )
             }
           }
