@@ -19,6 +19,7 @@ object PushConstants {
   const val SOUND: String = "sound"
   const val SOUND_DEFAULT: String = "default"
   const val SOUND_RINGTONE: String = "ringtone"
+  const val SOUND_FIBARO: String = "fibaro"
   const val VIBRATE: String = "vibrate"
   const val ACTIONS: String = "actions"
   const val CALLBACK: String = "callback"

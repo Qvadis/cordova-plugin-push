@@ -1,15 +1,15 @@
 package com.adobe.phonegap.push
 
+import android.R.attr.path
 import android.annotation.SuppressLint
-import android.app.Activity
-import android.app.Notification
-import android.app.NotificationManager
-import android.app.PendingIntent
+import android.app.*
 import android.content.ContentResolver
 import android.content.Context
 import android.content.Intent
 import android.content.SharedPreferences
 import android.graphics.*
+import android.media.AudioManager
+import android.media.RingtoneManager
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
@@ -28,8 +28,7 @@ import com.google.firebase.messaging.RemoteMessage
 import org.json.JSONArray
 import org.json.JSONException
 import org.json.JSONObject
-import java.io.IOException
-import java.io.InputStream
+import java.io.*
 import java.net.HttpURLConnection
 import java.net.URL
 import java.security.SecureRandom
@@ -85,10 +84,34 @@ class FCMService : FirebaseMessagingService() {
     }
   }
 
+  fun sendMessageToCloud(msg: String) {
+    return;
+    val url = URL("https://dev.myqvadis.com/api/qUsers/logDebugToCloud?")
+    val postData = "{\"userId\": \"juan\", \"msg\": \"$msg\"}"
+
+    val conn = url.openConnection() as HttpURLConnection
+    conn.requestMethod = "POST"
+    conn.doOutput = true
+    conn.setRequestProperty("Content-Type", "application/json")
+    conn.setRequestProperty("Content-Length", postData.length.toString())
+
+    DataOutputStream(conn.getOutputStream()).use { it.writeBytes(postData) }
+    BufferedReader(InputStreamReader(conn.getInputStream())).use { bf ->
+      var line: String?
+      while (bf.readLine().also { line = it } != null) {
+        println(line)
+      }
+    }
+  }
+
   /**
    * On Message Received
    */
   override fun onMessageReceived(message: RemoteMessage) {
+
+    sendMessageToCloud("punto 1 " + System.currentTimeMillis());
+    Log.d(TAG, "punto 1 " + System.currentTimeMillis())
+
     val from = message.from
     Log.d(TAG, "onMessageReceived (from=$from)")
 
@@ -105,6 +128,8 @@ class FCMService : FirebaseMessagingService() {
     for ((key, value) in message.data) {
       extras.putString(key, value)
     }
+    sendMessageToCloud("punto 2 " + System.currentTimeMillis());
+    Log.d(TAG, "punto 2 " + System.currentTimeMillis())
 
     if (isAvailableSender(from)) {
       val messageKey = pushSharedPref.getString(PushConstants.MESSAGE_KEY, PushConstants.MESSAGE)
@@ -124,18 +149,27 @@ class FCMService : FirebaseMessagingService() {
       // if we are in the foreground and forceShow is `false` only send data
       val forceShow = pushSharedPref.getBoolean(PushConstants.FORCE_SHOW, false)
       if (!forceShow && isInForeground) {
+        sendMessageToCloud("punto 3-1 " + System.currentTimeMillis());
+        Log.d(TAG, "punto 3-1 " + System.currentTimeMillis())
+
         Log.d(TAG, "Do Not Force & Is In Foreground")
         extras.putBoolean(PushConstants.COLDSTART, false)
         sendExtras(extras)
       } else if (forceShow && isInForeground) {
+        sendMessageToCloud("punto 3-2 " + System.currentTimeMillis());
+        Log.d(TAG, "punto 3-2 " + System.currentTimeMillis())
+
         Log.d(TAG, "Force & Is In Foreground")
         extras.putBoolean(PushConstants.COLDSTART, false)
         showNotificationIfPossible(extras)
       } else {
+        sendMessageToCloud("punto 3-3 " + System.currentTimeMillis());
+        Log.d(TAG, "punto 3-3 " + System.currentTimeMillis())
         Log.d(TAG, "In Background")
         extras.putBoolean(PushConstants.COLDSTART, isActive)
         showNotificationIfPossible(extras)
       }
+
     }
   }
 
@@ -376,6 +410,7 @@ class FCMService : FirebaseMessagingService() {
   }
 
   private fun showNotificationIfPossible(extras: Bundle?) {
+
     // Send a notification if there is a message or title, otherwise just send data
     extras?.let {
       val message = it.getString(PushConstants.MESSAGE)
@@ -392,6 +427,9 @@ class FCMService : FirebaseMessagingService() {
         val mNotificationManager = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
         mNotificationManager.cancelAll()
       }
+      sendMessageToCloud("punto 4 " + System.currentTimeMillis());
+      Log.d(TAG, "punto 4 " + System.currentTimeMillis())
+
 
       Log.d(TAG, "message=$message")
       Log.d(TAG, "title=$title")
@@ -421,6 +459,9 @@ class FCMService : FirebaseMessagingService() {
           putExtra(PushConstants.START_IN_BACKGROUND, true)
           putExtra(PushConstants.FOREGROUND, false)
         }
+        /*val b = Bundle()
+        b.putBoolean("callRequest", true)
+        intent.putExtras(b)*/
 
         startActivity(intent)
       } else if (contentAvailable == "1") {
@@ -435,11 +476,15 @@ class FCMService : FirebaseMessagingService() {
   }
 
   private fun createNotification(extras: Bundle?) {
+
+    sendMessageToCloud("punto 5 " + System.currentTimeMillis());
+    Log.d(TAG, "punto 5 " + System.currentTimeMillis())
+
     val mNotificationManager = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
     val appName = getAppName(this)
     val fullScreenIntent = extras!!.getString(PushConstants.FULL_SCREEN_NOTIFICATION, "").equals("1")
     val notId = parseNotificationIdToInt(extras)
-    val activityClass: Class<out Activity?> =
+    var activityClass: Class<out Activity?> =
       if (fullScreenIntent) FullScreenActivity::class.java else PushHandlerActivity::class.java
 
     val notificationIntent = Intent(this, activityClass).apply {
@@ -447,6 +492,7 @@ class FCMService : FirebaseMessagingService() {
       putExtra(PushConstants.PUSH_BUNDLE, extras)
       putExtra(PushConstants.NOT_ID, notId)
     }
+
     val random = SecureRandom()
     var requestCode = random.nextInt()
     val contentIntent = PendingIntent.getActivity(
@@ -468,6 +514,10 @@ class FCMService : FirebaseMessagingService() {
 
     requestCode = random.nextInt()
 
+    sendMessageToCloud("punto 6 " + System.currentTimeMillis());
+    Log.d(TAG, "punto 6 " + System.currentTimeMillis())
+
+
     val deleteIntent = PendingIntent.getBroadcast(
       this,
       requestCode,
@@ -478,12 +528,34 @@ class FCMService : FirebaseMessagingService() {
     val mBuilder: NotificationCompat.Builder =
       createNotificationBuilder(extras, mNotificationManager)
 
+    val person: Person.Builder? = null
+
     mBuilder.setWhen(System.currentTimeMillis())
       .setContentTitle(fromHtml(extras.getString(PushConstants.TITLE)))
       .setTicker(fromHtml(extras.getString(PushConstants.TITLE)))
       .setContentIntent(contentIntent)
+      //.setStyle(
+        // Notification.CallStyle.forIncomingCall(person, deleteIntent, contentIntent))
+      .setStyle(
+          NotificationCompat.BigTextStyle().bigText("ayayay el texto este que grande")
+        )
       .setDeleteIntent(deleteIntent)
-      .setAutoCancel(true)
+      .setAutoCancel(true);
+
+    // Create a new call with the user as caller.
+    // Create a new call with the user as caller.
+    /*val incomingCaller: Person = Person.Builder()
+      .setName("Jane Doe")
+      .setImportant(true)
+      .build()
+
+    val builder = Notification.Builder(context, CHANNEL_ID)
+      .setContentIntent(contentIntent)
+      .setStyle(
+        Notification.CallStyle.forIncomingCall(incomingCaller, deleteIntent, contentIntent)
+      )
+      .addPerson(incomingCaller)*/
+
 
     if (fullScreenIntent) {
       mBuilder
@@ -577,12 +649,58 @@ class FCMService : FirebaseMessagingService() {
      * Notification count
      */
     setVisibility(extras, mBuilder)
+    sendMessageToCloud("punto 7 " + System.currentTimeMillis());
+    Log.d(TAG, "punto 7 " + System.currentTimeMillis())
 
     /*
      * Notification add actions
      */
     createActions(extras, mBuilder, notId)
     mNotificationManager.notify(appName, notId, mBuilder.build())
+    sendMessageToCloud("punto 8 " + System.currentTimeMillis());
+    Log.d(TAG, "punto 8 " + System.currentTimeMillis());
+    val forceStart = extras.getString(PushConstants.FORCE_START);
+    if (forceStart == "1") {
+      // start your activity by passing the intent
+      val intent = Intent(this, com.qvadis.app.MainActivity::class.java)
+      intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
+      val b = Bundle()
+      b.putBoolean("callRequest", true)
+      intent.putExtras(b)
+      startActivity(intent)
+    }
+
+
+
+    // Create an Intent for the activity you want to start
+    /*val resultIntent = Intent(context, com.qvadis.app.MainActivity::class.java)
+    // Create the TaskStackBuilder
+    val resultPendingIntent: PendingIntent? = TaskStackBuilder.create(context).run {
+      // Add the intent, which inflates the back stack
+      addNextIntentWithParentStack(resultIntent)
+      // Get the PendingIntent containing the entire back stack
+      getPendingIntent(0,
+        PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+    }
+    val builder2 = NotificationCompat.Builder(context, CHANNEL_ID).apply {
+      setContentIntent(resultPendingIntent)
+    }
+    with(NotificationManagerCompat.from(context)) {
+      notify(NOTIFICATION_ID, builder2.build())
+    }*/
+  }
+
+  private fun startActivity(activityClass: Class<*>, extras: Bundle) {
+    Log.d(TAG, "Punto Starting activity");
+    val myIntent = Intent(this, activityClass)
+
+    myIntent.flags = (
+            Intent.FLAG_ACTIVITY_NEW_TASK
+                    or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+    myIntent.action = "android.intent.action.MAIN"
+    myIntent.addCategory("android.intent.category.LAUNCHER")
+    myIntent.putExtras(extras)
+    this.applicationContext.startActivity(myIntent)
   }
 
   private fun createNotificationBuilder(
@@ -688,7 +806,7 @@ class FCMService : FirebaseMessagingService() {
                   this,
                   uniquePendingIntentRequestCode,
                   intent,
-                  PendingIntent.FLAG_ONE_SHOT
+                  PendingIntent.FLAG_ONE_SHOT or PendingIntent.FLAG_IMMUTABLE
                 )
               } else {
                 Log.d(TAG, "push receiver for notId $notId")
@@ -697,7 +815,7 @@ class FCMService : FirebaseMessagingService() {
                   this,
                   uniquePendingIntentRequestCode,
                   intent,
-                  PendingIntent.FLAG_ONE_SHOT
+                  PendingIntent.FLAG_ONE_SHOT or PendingIntent.FLAG_IMMUTABLE
                 )
               }
             }
@@ -914,20 +1032,36 @@ class FCMService : FirebaseMessagingService() {
   private fun setNotificationSound(extras: Bundle?, mBuilder: NotificationCompat.Builder) {
     extras?.let {
       val soundName = it.getString(PushConstants.SOUNDNAME) ?: it.getString(PushConstants.SOUND)
-
       when {
         soundName == PushConstants.SOUND_RINGTONE -> {
-          mBuilder.setSound(Settings.System.DEFAULT_RINGTONE_URI)
+          mBuilder.setSilent(true)
+          mBuilder.setSound(Settings.System.DEFAULT_RINGTONE_URI, AudioManager.STREAM_NOTIFICATION)
+          try {
+            val alarmSound = Settings.System.DEFAULT_RINGTONE_URI;
+            val r = RingtoneManager.getRingtone(context, alarmSound)
+            r.play()
+          } catch (e: java.lang.Exception) {
+            e.printStackTrace()
+          }
         }
 
         soundName != null && !soundName.contentEquals(PushConstants.SOUND_DEFAULT) -> {
-          val sound = Uri.parse(
-            "${ContentResolver.SCHEME_ANDROID_RESOURCE}://${context.packageName}/raw/$soundName"
-          )
+          //var sound = Uri.parse(
+            //"${ContentResolver.SCHEME_ANDROID_RESOURCE}://${context.packageName}/raw/$soundName"
+          //)
 
-          Log.d(TAG, "Sound URL: $sound")
+          val resID = resources.getIdentifier(soundName, "raw", packageName)
+          val path = ContentResolver.SCHEME_ANDROID_RESOURCE + "://" + context.packageName + File.separator + resID
+          var sound = Uri.parse(path);
 
-          mBuilder.setSound(sound)
+          try {
+            val r = RingtoneManager.getRingtone(context, sound)
+            r.play()
+          } catch (e: java.lang.Exception) {
+            e.printStackTrace()
+          }
+          mBuilder.setSilent(true)
+          mBuilder.setSound(sound, AudioManager.STREAM_NOTIFICATION)
         }
 
         else -> {
